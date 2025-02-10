@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Shopify Store Locator</title>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBDl6D5xF1iPYY_8fpDwaXtHyKkhKzc--Q"></script>
+    <style>
+        :root {
+            --shopify-green: #008060;
+            --shopify-black: #1a1a1a;
+            --shopify-gray: #6b7177;
+        }
+
+        body {
+            font-family: ShopifySans, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            color: var(--shopify-black);
+            background-color: #fff;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        h1 {
+            font-size: 3em;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: var(--shopify-black);
+        }
+
+        .subtitle {
+            font-size: 1.2em;
+            color: var(--shopify-gray);
+            margin-bottom: 40px;
+        }
+
+        #search {
+            margin: 40px 0;
+            display: flex;
+            gap: 10px;
+        }
+
+        input {
+            padding: 12px 16px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            flex-grow: 1;
+            max-width: 400px;
+        }
+
+        button {
+            background-color: var(--shopify-green);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        button:hover {
+            background-color: #004c3f;
+        }
+
+        #map {
+            height: 500px;
+            width: 100%;
+            border-radius: 12px;
+            margin-bottom: 40px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        #store-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 40px;
+        }
+
+        .store {
+            padding: 20px;
+            border-radius: 8px;
+            background-color: #f6f6f7;
+            transition: transform 0.2s;
+        }
+
+        .store:hover {
+            transform: translateY(-2px);
+        }
+
+        .store h3 {
+            margin: 0 0 10px 0;
+            color: var(--shopify-black);
+        }
+
+        .store p {
+            margin: 0;
+            color: var(--shopify-gray);
+            font-size: 14px;
+        }
+
+        /* Info Window Styling */
+        .gm-style-iw {
+            padding: 12px !important;
+        }
+
+        .gm-style-iw h3 {
+            margin: 0;
+            font-size: 16px;
+            color: var(--shopify-black);
+        }
+
+        /* Add these new styles */
+        .header {
+            background-color: white;
+            border-bottom: 1px solid #ddd;
+            padding: 16px 0;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .logo {
+            height: 32px;
+        }
+
+        .nav {
+            display: flex;
+            gap: 32px;
+            align-items: center;
+        }
+
+        .nav-link {
+            color: var(--shopify-black);
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 14px;
+            padding: 8px 0;
+            position: relative;
+        }
+
+        .nav-link:hover::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background-color: var(--shopify-black);
+        }
+
+        .nav-button {
+            background-color: var(--shopify-black);
+            color: white;
+            padding: 8px 20px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            transition: background-color 0.2s;
+        }
+
+        .nav-button:hover {
+            background-color: #404040;
+        }
+
+        /* Adjust existing container padding */
+        .container {
+            padding-top: 60px;
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="header-content">
+            <a href="https://www.shopify.com">
+                <img src="https://cdn.shopify.com/shopifycloud/brochure/assets/brand-assets/shopify-logo-primary-logo-456baa801ee66a0a435671082365958316831c9960c480451dd0330bcdae304f.svg" alt="Shopify" class="logo">
+            </a>
+            <nav class="nav">
+                <a href="#" class="nav-link">Solutions</a>
+                <a href="#" class="nav-link">Pricing</a>
+                <a href="#" class="nav-link">Resources</a>
+                <a href="https://www.shopify.com/pos" class="nav-link">Point of Sale</a>
+                <a href="#" class="nav-button">Start free trial</a>
+            </nav>
+        </div>
+    </header>
+
+    <div class="container">
+        <h1>Retailers near you are succeeding with Shopify Point of Sale</h1>
+        <div class="subtitle">Discover local retailers using Shopify's point of sale system.</div>
+        
+        <div id="search">
+            <input type="text" id="location" placeholder="Enter your location">
+            <button onclick="searchStores()">Find Stores</button>
+        </div>
+        
+        <div id="map"></div>
+        <div id="store-list"></div>
+    </div>
+
+    <script>
+        let map;
+        let allStores = [];
+        
+        function initMap() {
+            // Center on Sacramento area (adjusted to better show store clusters)
+            const defaultLocation = { lat: 38.5950, lng: -121.4300 };
+            map = new google.maps.Map(document.getElementById('map'), {
+                zoom: 10,  // Zoomed out more to show the wider Sacramento area
+                center: defaultLocation,
+                mapTypeControl: false, // Cleaner UI
+                streetViewControl: false, // Cleaner UI
+                styles: [
+                    {
+                        featureType: "poi",
+                        elementType: "labels",
+                        stylers: [{ visibility: "off" }]  // Hide points of interest for cleaner map
+                    }
+                ]
+            });
+            loadStoreData();
+        }
+
+        async function loadStoreData() {
+            try {
+                const response = await fetch('locations.csv');
+                const csvData = await response.text();
+                const stores = parseCSV(csvData);
+                allStores = stores;
+                displayStores(stores);
+            } catch (error) {
+                console.error('Error loading store data:', error);
+            }
+        }
+
+        function parseCSV(csvData) {
+            const lines = csvData.split('\n');
+            const stores = [];
+            
+            // Skip header row if it exists
+            const startIndex = lines[0].toLowerCase().includes('lat') ? 1 : 0;
+            
+            for (let i = startIndex; i < lines.length; i++) {
+                const line = lines[i].trim();
+                if (line) {
+                    // Split by either tab or comma
+                    const parts = line.split(/[,\t]+/);
+                    stores.push({
+                        name: parts[0].trim(),
+                        lat: parseFloat(parts[1]),
+                        lng: parseFloat(parts[2])
+                    });
+                }
+            }
+            return stores;
+        }
+
+        function displayStores(stores) {
+            // Clear existing markers
+            map.setCenter({ lat: stores[0].lat, lng: stores[0].lng });
+            
+            // Create info window
+            const infoWindow = new google.maps.InfoWindow();
+            const hoverInfoWindow = new google.maps.InfoWindow();
+            
+            // Add markers for each store
+            stores.forEach(store => {
+                const marker = new google.maps.Marker({
+                    position: { lat: store.lat, lng: store.lng },
+                    map: map,
+                    title: store.name,
+                    animation: google.maps.Animation.DROP
+                });
+
+                // Add hover listeners
+                marker.addListener('mouseover', () => {
+                    marker.setAnimation(google.maps.Animation.BOUNCE);
+                    hoverInfoWindow.setContent(`<div style="padding: 5px">${store.name}</div>`);
+                    hoverInfoWindow.open(map, marker);
+                });
+
+                marker.addListener('mouseout', () => {
+                    marker.setAnimation(null);
+                    hoverInfoWindow.close();
+                });
+
+                // Add click listener to show info window
+                marker.addListener('click', () => {
+                    infoWindow.setContent(`<h3>${store.name}</h3>`);
+                    infoWindow.open(map, marker);
+                });
+            });
+
+            // Update store list
+            const storeList = document.getElementById('store-list');
+            storeList.innerHTML = stores.map(store => 
+                `<div class="store">
+                    <h3>${store.name}</h3>
+                    <p>Lat: ${store.lat}, Lng: ${store.lng}</p>
+                </div>`
+            ).join('');
+        }
+
+        window.onload = initMap;
+    </script>
+</body>
+</html> 
